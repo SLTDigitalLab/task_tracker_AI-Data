@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BA
+  SUPERVISOR
+  ADMIN
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Status {
+  PENDING
+  ONGOING
+  COMPLETED
+  SUPERVISOR_REVIEW
+  APPROVED
+  NEEDS_REVISION
+}
+
+model User {
+  id             String    @id @default(uuid())
+  fullName       String
+  inspNumber     String    @unique
+  nic            String    @unique
+  designation    String
+  department     String
+  email          String    @unique
+  username       String    @unique
+  passwordHash   String
+  role           Role      @default(BA)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  assignedProjects Project[] @relation("ProjectAssignee")
+  supervisedProjects Project[] @relation("ProjectSupervisor")
+  tasks          Task[]
+  documents      Document[]
+  feedbacksGiven Feedback[]  @relation("FeedbackAuthor")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  deadline    DateTime
+  status      Status   @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assigneeId  String?
+  assignee    User?    @relation("ProjectAssignee", fields: [assigneeId], references: [id])
+  supervisorId String?
+  supervisor  User?    @relation("ProjectSupervisor", fields: [supervisorId], references: [id])
+
+  tasks       Task[]
+  documents   Document[]
+  feedbacks   Feedback[]
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  priority    Priority @default(MEDIUM)
+  status      Status   @default(PENDING)
+  deadline    DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assigneeId  String
+  assignee    User     @relation(fields: [assigneeId], references: [id])
+
+  feedbacks   Feedback[]
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   // e.g., BRD, Process Flow, UAT, Meeting Minutes
+  filePath    String
+  status      Status   @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploaderId  String
+  uploader    User     @relation(fields: [uploaderId], references: [id])
+
+  feedbacks   Feedback[]
+}
+
+model Feedback {
+  id          String   @id @default(uuid())
+  content     String
+  createdAt   DateTime @default(now())
+
+  authorId    String
+  author      User     @relation("FeedbackAuthor", fields: [authorId], references: [id])
+
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId      String?
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
