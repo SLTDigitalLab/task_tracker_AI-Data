@@ -36,14 +36,13 @@ const getTasks = async (req, res) => {
 // @access  Private (Supervisor/Admin)
 const createTask = async (req, res) => {
   try {
-    const { title, description, priority, deadline, projectId, assigneeId } = req.body;
+    const { title, description, priority, projectId, assigneeId } = req.body;
     
     const task = await prisma.task.create({
       data: {
         title,
         description,
         priority: priority || 'MEDIUM',
-        deadline: new Date(deadline),
         projectId,
         assigneeId
       }

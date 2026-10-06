@@ -40,22 +40,71 @@ const getProjects = async (req, res) => {
 // @access  Private (Supervisor/Admin only)
 const createProject = async (req, res) => {
   try {
-    const { title, description, deadline, assigneeId } = req.body;
+    const { title, description, assigneeId } = req.body;
     
     const project = await prisma.project.create({
       data: {
         title,
         description,
-        deadline: new Date(deadline),
         supervisorId: req.user.id,
         assigneeId: assigneeId || null
       }
     });
 
+    if (assigneeId) {
+      await prisma.notification.create({
+        data: {
+          userId: assigneeId,
+          projectId: project.id,
+          message: `You have been assigned to a new project: ${project.title}`
+        }
+      });
+    }
+
     res.status(201).json(project);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error creating project' });
+  }
+};
+
+// @desc    Update a project
+// @route   PUT /api/projects/:id
+// @access  Private (Supervisor/Admin only)
+const updateProject = async (req, res) => {
+  try {
+    const { title, description, status, assigneeId } = req.body;
+    const projectId = req.params.id;
+
+    const existingProject = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!existingProject) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        title,
+        description,
+        status,
+        assigneeId: assigneeId || null
+      }
+    });
+
+    if (assigneeId && existingProject.assigneeId !== assigneeId) {
+      await prisma.notification.create({
+        data: {
+          userId: assigneeId,
+          projectId: project.id,
+          message: `You have been assigned to project: ${project.title}`
+        }
+      });
+    }
+
+    res.json(project);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error updating project' });
   }
 };
 
@@ -94,4 +143,4 @@ const getProjectById = async (req, res) => {
   }
 };
 
-module.exports = { getProjects, createProject, getProjectById };
+module.exports = { getProjects, createProject, getProjectById, updateProject };

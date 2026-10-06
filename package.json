@@ -1,0 +1,20 @@
+{
+  "name": "slt-ba-progress-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SLTMOBITEL Business Analyst Progress Tracker",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "backend": "npm run dev --prefix backend",
+    "frontend": "npm run dev --prefix frontend",
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "db:push": "npx --prefix backend prisma db push",
+    "db:seed": "node backend/seed.js",
+    "studio": "npm run --prefix backend studio",
+    "build": "npm run build --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

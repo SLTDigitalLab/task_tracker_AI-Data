@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { KeyRound, User, ArrowRight, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -16,7 +17,7 @@ export default function Login() {
     if (username && password) {
       setLoading(true);
       try {
-        const { data } = await axios.post('http://localhost:5001/api/auth/login', { username, password });
+        const { data } = await axios.post(`${API_BASE_URL}/api/auth/login`, { username, password });
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data));
         navigate('/dashboard');
@@ -29,17 +30,29 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] font-bold text-xl mb-4 shadow-lg shadow-[var(--primary)]/20">
-            BA
+    <div className="min-h-screen flex items-center justify-center bg-transparent px-4 relative">
+      {/* Top Left Logo Navigation */}
+      <div className="absolute top-6 left-6 z-10">
+        <Link to="/" className="inline-flex items-center gap-2.5 bg-white/80 dark:bg-[#06242b]/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-sky-200/60 shadow-xs hover:shadow-sm smooth-transition">
+          <img src="/slt-logo.png" alt="SLTMOBITEL Logo" className="h-7 w-auto object-contain" />
+          <span className="text-xs font-semibold text-sky-800 dark:text-sky-300 pl-2 border-l border-sky-200">BA Tracker</span>
+        </Link>
+      </div>
+
+      <div className="w-full max-w-md my-12">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-md border border-sky-100 mb-4 hover-lift">
+            <img 
+              src="/slt-mark.png" 
+              alt="SLTMOBITEL" 
+              className="w-10 h-10 object-contain"
+            />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">Welcome back</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-2">Sign in to your account to continue</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Welcome back</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">Sign in to your account to continue</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-[#121214] p-8 rounded-2xl border border-[var(--border)] shadow-sm">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white/85 dark:bg-[#06242b]/85 backdrop-blur-xl p-8 rounded-3xl border border-sky-200/70 dark:border-cyan-900/50 shadow-xl shadow-sky-500/5">
           {error && (
             <div className="p-3 text-sm text-red-500 bg-red-50 dark:bg-red-950/30 rounded-md border border-red-200 dark:border-red-900/50">
               {error}

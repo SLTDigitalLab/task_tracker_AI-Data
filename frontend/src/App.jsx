@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
+import Tasks from './pages/Tasks';
 import Documents from './pages/Documents';
 import Layout from './components/Layout';
 
@@ -11,9 +12,9 @@ function Landing() {
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] font-sans">
       <nav className="glass sticky top-0 z-50 border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold tracking-tighter shadow-sm">
-            SLT
+        <div className="flex items-center gap-3">
+          <div className="bg-white rounded-lg p-1.5 shadow-xs border border-slate-200/80 flex items-center">
+            <img src="/slt-logo.png" alt="SLTMOBITEL Logo" className="h-7 w-auto object-contain" />
           </div>
           <span className="font-semibold text-lg tracking-tight">BA Tracker</span>
         </div>
@@ -58,6 +59,7 @@ function App() {
         <Route path="/dashboard" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="tasks" element={<Tasks />} />
           <Route path="documents" element={<Documents />} />
           <Route path="settings" element={<div className="p-4 border border-dashed border-[var(--border)] rounded-xl text-center text-[var(--muted-foreground)]">Settings module coming soon</div>} />
         </Route>

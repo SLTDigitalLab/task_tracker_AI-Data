@@ -50,6 +50,7 @@ const register = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+      inspNumber: user.inspNumber,
       token: generateToken(user.id, user.role)
     });
   } catch (error) {
@@ -63,10 +64,20 @@ const register = async (req, res) => {
 // @access  Public
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const identifier = req.body.username || req.body.email || req.body.identifier;
+    const { password } = req.body;
 
-    const user = await prisma.user.findUnique({
-      where: { username }
+    if (!identifier || !password) {
+      return res.status(400).json({ message: 'Please provide username/email and password' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: identifier },
+          { email: identifier }
+        ]
+      }
     });
 
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
@@ -75,13 +86,14 @@ const login = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        inspNumber: user.inspNumber,
         token: generateToken(user.id, user.role)
       });
     } else {
       res.status(401).json({ message: 'Invalid credentials' });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -115,4 +127,30 @@ const getProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile };
+// @desc    Get users by role
+// @route   GET /api/auth/users
+// @access  Private (Supervisor/Admin)
+const getUsers = async (req, res) => {
+  try {
+    const { role } = req.query;
+    
+    const users = await prisma.user.findMany({
+      where: role ? { role: role.toUpperCase() } : {},
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        designation: true,
+        department: true
+      }
+    });
+    
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error fetching users' });
+  }
+};
+
+module.exports = { register, login, getProfile, getUsers };

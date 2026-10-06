@@ -47,13 +47,14 @@ model User {
   tasks          Task[]
   documents      Document[]
   feedbacksGiven Feedback[]  @relation("FeedbackAuthor")
+  notifications  Notification[]
+  documentHistories DocumentHistory[]
 }
 
 model Project {
   id          String   @id @default(uuid())
   title       String
   description String?
-  deadline    DateTime
   status      Status   @default(PENDING)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -66,6 +67,7 @@ model Project {
   tasks       Task[]
   documents   Document[]
   feedbacks   Feedback[]
+  notifications Notification[]
 }
 
 model Task {
@@ -74,7 +76,6 @@ model Task {
   description String?
   priority    Priority @default(MEDIUM)
   status      Status   @default(PENDING)
-  deadline    DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -91,6 +92,7 @@ model Document {
   title       String
   category    String   // e.g., BRD, Process Flow, UAT, Meeting Minutes
   filePath    String
+  version     Int      @default(1)
   status      Status   @default(PENDING)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -101,6 +103,7 @@ model Document {
   uploader    User     @relation(fields: [uploaderId], references: [id])
 
   feedbacks   Feedback[]
+  history     DocumentHistory[]
 }
 
 model Feedback {
@@ -117,4 +120,31 @@ model Feedback {
   task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   documentId  String?
   document    Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model DocumentHistory {
+  id            String   @id @default(uuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version       Int      @default(1)
+  action        String   // INITIAL_UPLOAD, REVISED, NEEDS_REVISION, APPROVED, STATUS_UPDATED
+  status        Status
+  comment       String?
+  filePath      String?
+  performedById String
+  performedBy   User     @relation(fields: [performedById], references: [id])
+  createdAt     DateTime @default(now())
 }

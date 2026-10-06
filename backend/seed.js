@@ -48,7 +48,6 @@ async function main() {
     data: {
       title: 'Project Alpha - BRD Refinement',
       description: 'Refining the Business Requirements Document for the new CRM system.',
-      deadline: new Date('2026-10-15'),
       supervisorId: supervisor.id,
       assigneeId: ba.id,
       status: 'ONGOING'
@@ -61,7 +60,6 @@ async function main() {
       title: 'Draft CRM requirements',
       description: 'Compile the initial draft from stakeholder meetings.',
       priority: 'HIGH',
-      deadline: new Date('2026-10-01'),
       projectId: project.id,
       assigneeId: ba.id
     }
