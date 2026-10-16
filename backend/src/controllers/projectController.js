@@ -8,23 +8,35 @@ const getProjects = async (req, res) => {
     const { id, role } = req.user;
     let projects;
 
-    if (role === 'SUPERVISOR' || role === 'ADMIN') {
-      // Supervisors see projects they supervise
+    if (role === 'ADMIN') {
+      projects = await prisma.project.findMany({
+        include: {
+          assignee: { select: { fullName: true, email: true } },
+          supervisor: { select: { fullName: true, email: true } },
+          _count: { select: { tasks: true, documents: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+    } else if (role === 'SUPERVISOR') {
       projects = await prisma.project.findMany({
         where: { supervisorId: id },
         include: {
           assignee: { select: { fullName: true, email: true } },
+          supervisor: { select: { fullName: true, email: true } },
           _count: { select: { tasks: true, documents: true } }
-        }
+        },
+        orderBy: { updatedAt: 'desc' }
       });
     } else {
       // BAs see projects assigned to them
       projects = await prisma.project.findMany({
         where: { assigneeId: id },
         include: {
+          assignee: { select: { fullName: true, email: true } },
           supervisor: { select: { fullName: true, email: true } },
           _count: { select: { tasks: true, documents: true } }
-        }
+        },
+        orderBy: { updatedAt: 'desc' }
       });
     }
 
@@ -40,12 +52,14 @@ const getProjects = async (req, res) => {
 // @access  Private (Supervisor/Admin only)
 const createProject = async (req, res) => {
   try {
-    const { title, description, assigneeId } = req.body;
+    const { title, description, status, progress, assigneeId } = req.body;
     
     const project = await prisma.project.create({
       data: {
         title,
         description,
+        status: status || 'BACKLOG',
+        progress: progress !== undefined ? parseInt(progress, 10) : 0,
         supervisorId: req.user.id,
         assigneeId: assigneeId || null
       }
@@ -73,7 +87,7 @@ const createProject = async (req, res) => {
 // @access  Private (Supervisor/Admin only)
 const updateProject = async (req, res) => {
   try {
-    const { title, description, status, assigneeId } = req.body;
+    const { title, description, status, progress, assigneeId } = req.body;
     const projectId = req.params.id;
 
     const existingProject = await prisma.project.findUnique({ where: { id: projectId } });
@@ -81,14 +95,20 @@ const updateProject = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
+    const dataToUpdate = {
+      title,
+      description,
+      status,
+      assigneeId: assigneeId || null
+    };
+
+    if (progress !== undefined) {
+      dataToUpdate.progress = parseInt(progress, 10);
+    }
+
     const project = await prisma.project.update({
       where: { id: projectId },
-      data: {
-        title,
-        description,
-        status,
-        assigneeId: assigneeId || null
-      }
+      data: dataToUpdate
     });
 
     if (assigneeId && existingProject.assigneeId !== assigneeId) {
@@ -105,6 +125,65 @@ const updateProject = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error updating project' });
+  }
+};
+
+// @desc    Update project Kanban status and progress
+// @route   PATCH /api/projects/:id/status
+// @access  Private (Assignee BA, Project Supervisor, or Admin)
+const updateProjectStatus = async (req, res) => {
+  try {
+    const { status, progress } = req.body;
+    const projectId = req.params.id;
+
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { assignee: true, supervisor: true }
+    });
+
+    if (!existingProject) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const isAssignee = existingProject.assigneeId === req.user.id;
+    const isSupervisor = existingProject.supervisorId === req.user.id || req.user.role === 'SUPERVISOR' || req.user.role === 'ADMIN';
+
+    if (!isAssignee && !isSupervisor) {
+      return res.status(403).json({ message: 'Not authorized to update this project status' });
+    }
+
+    const dataToUpdate = {};
+    if (status !== undefined) dataToUpdate.status = status;
+    if (progress !== undefined) dataToUpdate.progress = Math.min(100, Math.max(0, parseInt(progress, 10) || 0));
+
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: dataToUpdate,
+      include: {
+        assignee: { select: { fullName: true, email: true } },
+        supervisor: { select: { fullName: true, email: true } },
+        _count: { select: { tasks: true, documents: true } }
+      }
+    });
+
+    // Trigger notification if status moved
+    if (status && status !== existingProject.status) {
+      const notifyTargetId = isAssignee ? existingProject.supervisorId : existingProject.assigneeId;
+      if (notifyTargetId && notifyTargetId !== req.user.id) {
+        await prisma.notification.create({
+          data: {
+            userId: notifyTargetId,
+            projectId: project.id,
+            message: `Project "${project.title}" moved to ${status.replace('_', ' ')} (${project.progress}%) by ${req.user.fullName}.`
+          }
+        });
+      }
+    }
+
+    res.json(project);
+  } catch (error) {
+    console.error('Error updating project status:', error);
+    res.status(500).json({ message: 'Server error updating project status' });
   }
 };
 
@@ -143,4 +222,4 @@ const getProjectById = async (req, res) => {
   }
 };
 
-module.exports = { getProjects, createProject, getProjectById, updateProject };
+module.exports = { getProjects, createProject, getProjectById, updateProject, updateProjectStatus };

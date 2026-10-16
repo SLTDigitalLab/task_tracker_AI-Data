@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
-  FileUp, Search, FileText, Download, Loader2, AlertCircle, Filter, 
+  FileUp, Search, FileText, Download, Loader2, AlertCircle, 
   Folder, FolderOpen, History, RotateCcw, CheckCircle2, AlertTriangle, 
-  Clock, X, Check, ArrowRight, Eye, MessageSquare, Layers, Shield
+  Clock, X, Check, MessageSquare, Shield, Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
@@ -25,9 +25,13 @@ export default function Documents() {
 
   // Filters and navigation
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProject, setSelectedProject] = useState('ALL');
+  const [projectSearch, setProjectSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [viewMode, setViewMode] = useState('folders'); // 'folders' or 'table'
+  
+  // Delete modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   
   // Error handling
   const [modalError, setModalError] = useState('');
@@ -251,26 +255,56 @@ export default function Documents() {
 
   const handleDownload = (filePath) => {
     if (!filePath) return;
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      window.open(filePath, '_blank');
+      return;
+    }
     const cleanPath = filePath.replace(/\\/g, '/');
     const publicUrl = `${API_BASE_URL}/${cleanPath}`;
     window.open(publicUrl, '_blank');
   };
 
+  const handleOpenDeleteModal = (doc) => {
+    setDocumentToDelete(doc);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!documentToDelete) return;
+    try {
+      setDeleting(true);
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_BASE_URL}/api/documents/${documentToDelete.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDocuments(prev => prev.filter(d => d.id !== documentToDelete.id));
+      setIsDeleteModalOpen(false);
+      setDocumentToDelete(null);
+    } catch (err) {
+      console.error('Error deleting document:', err);
+      alert(err.response?.data?.message || 'Failed to delete document');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Filtered documents
   const filteredDocuments = documents.filter(doc => {
-    const matchesProject = selectedProject === 'ALL' || doc.projectId === selectedProject;
+    const projectTitle = doc.project?.title?.toLowerCase() || '';
+    const matchesProjectSearch = !projectSearch.trim() || projectTitle.includes(projectSearch.toLowerCase().trim());
     const matchesCategory = selectedCategory === 'ALL' || doc.category === selectedCategory;
-    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesDocSearch = !searchQuery.trim() || 
+      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.project?.title && doc.project.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (doc.uploader?.fullName && doc.uploader.fullName.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    return matchesProject && matchesCategory && matchesSearch;
+    return matchesProjectSearch && matchesCategory && matchesDocSearch;
   });
 
-  // Calculate folder counts based on selected project
-  const projectScopedDocs = selectedProject === 'ALL' 
+  // Calculate folder counts based on project search
+  const projectScopedDocs = !projectSearch.trim()
     ? documents 
-    : documents.filter(d => d.projectId === selectedProject);
+    : documents.filter(d => d.project?.title?.toLowerCase().includes(projectSearch.toLowerCase().trim()));
 
   const getFolderStats = (catId) => {
     const docsInCat = projectScopedDocs.filter(d => d.category === catId);
@@ -314,50 +348,41 @@ export default function Documents() {
         </div>
       </div>
 
-      {/* Project & Category Navigation Bar (FR 12/13) */}
+      {/* Project Search Bar & Category Folder View */}
       <div className="bg-white/80 dark:bg-[#06242b]/80 backdrop-blur-md p-5 rounded-2xl border border-sky-100/80 dark:border-cyan-900/50 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5" /> Project Filter:
-            </span>
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="text-sm rounded-lg border border-sky-200/80 dark:border-cyan-900 bg-white dark:bg-[#082f38] px-3 py-1.5 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
-            >
-              <option value="ALL">All Projects ({projects.length})</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-sky-500" />
+            <input 
+              type="text" 
+              placeholder="Search projects to filter folders..." 
+              value={projectSearch}
+              onChange={(e) => setProjectSearch(e.target.value)}
+              className="w-full pl-10 pr-9 py-2 text-sm rounded-xl border border-sky-200/80 dark:border-cyan-900 bg-white dark:bg-[#082f38] font-medium focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-2xs"
+            />
+            {projectSearch && (
+              <button 
+                onClick={() => setProjectSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                title="Clear project search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewMode('folders')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 smooth-transition ${viewMode === 'folders' ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              title="Folder View"
-            >
-              <Folder className="w-4 h-4" /> Folders
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 smooth-transition ${viewMode === 'table' ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-              title="All Documents Table"
-            >
-              <Layers className="w-4 h-4" /> List
-            </button>
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <Folder className="w-4 h-4 text-sky-500" />
+            <span>Folder View ({projectScopedDocs.length} documents)</span>
           </div>
         </div>
 
         {/* Category Folders Grid (FR 12/13) */}
-        {viewMode === 'folders' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
-            <button
-              onClick={() => setSelectedCategory('ALL')}
-              className={`p-3.5 rounded-xl border text-left smooth-transition hover-lift flex flex-col justify-between ${selectedCategory === 'ALL' ? 'bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-sky-950/40 dark:to-emerald-950/40 border-sky-400 dark:border-sky-500 shadow-xs ring-2 ring-sky-500/20' : 'bg-white/60 dark:bg-[#0a353f]/40 border-sky-100 dark:border-cyan-900/40 hover:bg-sky-50/40'}`}
-            >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
+          <button
+            onClick={() => setSelectedCategory('ALL')}
+            className={`p-3.5 rounded-xl border text-left smooth-transition hover-lift flex flex-col justify-between ${selectedCategory === 'ALL' ? 'bg-gradient-to-br from-sky-50 to-emerald-50 dark:from-sky-950/40 dark:to-emerald-950/40 border-sky-400 dark:border-sky-500 shadow-xs ring-2 ring-sky-500/20' : 'bg-white/60 dark:bg-[#0a353f]/40 border-sky-100 dark:border-cyan-900/40 hover:bg-sky-50/40'}`}
+          >
               <div className="flex items-center justify-between">
                 <Folder className="w-5 h-5 text-sky-600 dark:text-sky-400" />
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/50">
@@ -398,8 +423,7 @@ export default function Documents() {
                 </button>
               );
             })}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Search & Active Filter Bar */}
@@ -543,6 +567,15 @@ export default function Documents() {
                             </button>
                           </div>
                         )}
+
+                        {/* Delete button (FR 3) */}
+                        <button 
+                          onClick={() => handleOpenDeleteModal(doc)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 smooth-transition"
+                          title="Delete Document"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -816,7 +849,7 @@ export default function Documents() {
                 <p className="text-center py-10 text-slate-400 text-sm">No recorded history entries found for this document.</p>
               ) : (
                 <div className="relative pl-6 border-l-2 border-sky-200 dark:border-cyan-900 space-y-6">
-                  {docHistory.map((item, index) => (
+                  {docHistory.map((item) => (
                     <div key={item.id} className="relative group">
                       {/* Timeline dot */}
                       <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-white dark:border-[#06242b] ${item.action === 'APPROVED' ? 'bg-emerald-500' : item.action === 'NEEDS_REVISION' ? 'bg-amber-500' : item.action === 'REVISED' ? 'bg-teal-500' : 'bg-sky-500'}`} />
@@ -868,6 +901,63 @@ export default function Documents() {
                 className="px-4 py-2 text-sm font-medium rounded-xl bg-slate-200/80 hover:bg-slate-300/80 smooth-transition"
               >
                 Close History
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Delete Confirmation Modal */}
+      {isDeleteModalOpen && documentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#06242b] border border-rose-200/80 dark:border-rose-900/60 rounded-3xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-rose-100 dark:border-rose-900/40 flex justify-between items-center bg-rose-50/50 dark:bg-rose-950/30">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-500 text-white shadow-xs">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">Delete Document</h3>
+                  <p className="text-xs text-rose-600 dark:text-rose-400">Permanently remove this file</p>
+                </div>
+              </div>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Are you sure you want to delete <strong className="text-slate-900 dark:text-white">"{documentToDelete.title}"</strong>?
+              </p>
+              <div className="p-3 bg-slate-50 dark:bg-[#0a353f]/50 rounded-xl text-xs space-y-1 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-cyan-900/40">
+                <div><strong>Project:</strong> {documentToDelete.project?.title || 'N/A'}</div>
+                <div><strong>Category:</strong> {documentToDelete.category}</div>
+                <div><strong>Version:</strong> v{documentToDelete.version}</div>
+              </div>
+              <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                This will permanently remove the document and its version history.
+              </p>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-cyan-900/50 flex justify-end gap-3 bg-slate-50/50 dark:bg-[#082f38]/30">
+              <button 
+                type="button" 
+                disabled={deleting}
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium rounded-xl hover:bg-slate-200/80 dark:hover:bg-slate-800 smooth-transition"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                disabled={deleting}
+                onClick={handleDeleteDocument}
+                className="px-4 py-2 text-sm font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white smooth-transition shadow-xs flex items-center gap-2"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleting ? 'Deleting...' : 'Delete Document'}
               </button>
             </div>
           </div>

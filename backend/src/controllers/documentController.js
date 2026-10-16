@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { uploadToStorage } = require('../config/supabaseStorage');
 
 // @desc    Upload a new document
 // @route   POST /api/documents
@@ -12,6 +13,7 @@ const uploadDocument = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
+    const { filePath } = await uploadToStorage(uploadedFile);
     const docTitle = title || uploadedFile.originalname || 'Document';
 
     const document = await prisma.document.create({
@@ -20,7 +22,7 @@ const uploadDocument = async (req, res) => {
         category: category || 'BRD',
         projectId,
         uploaderId: req.user.id,
-        filePath: `uploads/${uploadedFile.filename}`,
+        filePath: filePath,
         version: 1,
         status: 'PENDING'
       },
@@ -60,12 +62,33 @@ const uploadDocument = async (req, res) => {
   }
 };
 
-// @desc    Get all documents
+// @desc    Get all documents for current user
 // @route   GET /api/documents
 // @access  Private
 const getDocuments = async (req, res) => {
   try {
+    const { id, role } = req.user;
+    let whereClause = {};
+
+    if (role === 'SUPERVISOR') {
+      // Supervisors can see documents for projects they supervise, plus their own uploads
+      whereClause = {
+        OR: [
+          { project: { supervisorId: id } },
+          { uploaderId: id }
+        ]
+      };
+    } else if (role === 'ADMIN') {
+      whereClause = {};
+    } else {
+      // BAs see only their own uploaded documents
+      whereClause = {
+        uploaderId: id
+      };
+    }
+
     const documents = await prisma.document.findMany({
+      where: whereClause,
       include: {
         uploader: { select: { fullName: true, email: true } },
         project: { select: { id: true, title: true, supervisorId: true } },
@@ -168,8 +191,8 @@ const submitRevision = async (req, res) => {
       return res.status(404).json({ message: 'Document not found' });
     }
 
+    const { filePath: newFilePath } = await uploadToStorage(uploadedFile);
     const newVersion = existingDoc.version + 1;
-    const newFilePath = `uploads/${uploadedFile.filename}`;
 
     const updatedDocument = await prisma.document.update({
       where: { id: req.params.id },
@@ -231,10 +254,50 @@ const getDocumentHistory = async (req, res) => {
   }
 };
 
+// @desc    Delete a document
+// @route   DELETE /api/documents/:id
+// @access  Private (Uploader or Project Supervisor / Admin)
+const deleteDocument = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const document = await prisma.document.findUnique({
+      where: { id },
+      include: { project: true }
+    });
+
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    const isUploader = document.uploaderId === req.user.id;
+    const isSupervisor = req.user.role === 'SUPERVISOR' || req.user.role === 'ADMIN' || document.project?.supervisorId === req.user.id;
+
+    if (!isUploader && !isSupervisor) {
+      return res.status(403).json({ message: 'Not authorized to delete this document' });
+    }
+
+    // Delete associated history records first
+    await prisma.documentHistory.deleteMany({
+      where: { documentId: id }
+    });
+
+    // Delete document record
+    await prisma.document.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    res.status(500).json({ message: 'Server error deleting document' });
+  }
+};
+
 module.exports = { 
   uploadDocument, 
   getDocuments, 
   updateDocumentStatus, 
   submitRevision, 
-  getDocumentHistory 
+  getDocumentHistory,
+  deleteDocument
 };

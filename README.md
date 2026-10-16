@@ -26,7 +26,7 @@ npm run dev
 - **Frontend Application**: [http://localhost:5173](http://localhost:5173)
   *(Also available on your local network: `http://192.168.1.5:5173`)*
 - **Backend API & Explorer**: [http://localhost:5001](http://localhost:5001)
-- **Prisma Database Visual Studio**: [http://localhost:5555](http://localhost:5555)
+- **Prisma Database Visual Studio**: [http://localhost:5556](http://localhost:5556)
 
 ---
 

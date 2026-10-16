@@ -40,7 +40,7 @@ export default function Dashboard() {
 
         // Project calculations
         const projectsCount = projects.length;
-        const completedProjects = projects.filter(p => p.status === 'COMPLETED').length;
+        const completedProjects = projects.filter(p => p.status === 'COMPLETED' || p.status === 'DONE').length;
 
         // Task calculations
         const pendingTasks = tasks.filter(t => t.status === 'PENDING' || t.status === 'ONGOING').length;

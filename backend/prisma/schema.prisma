@@ -55,7 +55,8 @@ model Project {
   id          String   @id @default(uuid())
   title       String
   description String?
-  status      Status   @default(PENDING)
+  status      String   @default("BACKLOG")
+  progress    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
