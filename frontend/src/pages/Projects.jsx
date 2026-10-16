@@ -14,6 +14,7 @@ import {
   FileText, 
   User, 
   Shield, 
+  Calendar,
   X,
   AlertCircle
 } from 'lucide-react';
@@ -137,7 +138,8 @@ export default function Projects() {
     description: '',
     status: 'BACKLOG',
     progress: 0,
-    assigneeId: ''
+    assigneeId: '',
+    assignedDate: new Date().toISOString().split('T')[0]
   });
 
   // Status & Progress update modal state
@@ -272,7 +274,12 @@ export default function Projects() {
         description: project.description || '',
         status: normalizeStatus(project.status),
         progress: project.progress ?? 0,
-        assigneeId: project.assigneeId || ''
+        assigneeId: project.assigneeId || '',
+        assignedDate: project.assignedDate 
+          ? new Date(project.assignedDate).toISOString().split('T')[0]
+          : project.createdAt 
+            ? new Date(project.createdAt).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0]
       });
     } else {
       setEditingProject(null);
@@ -281,7 +288,8 @@ export default function Projects() {
         description: '',
         status: 'BACKLOG',
         progress: 0,
-        assigneeId: ''
+        assigneeId: '',
+        assignedDate: new Date().toISOString().split('T')[0]
       });
     }
     setIsModalOpen(true);
@@ -582,6 +590,21 @@ export default function Projects() {
                                   </span>
                                 </div>
                               )}
+
+                              {/* Assigned Date */}
+                              <div className="flex items-center justify-between text-[11px] pt-0.5">
+                                <span className="text-[var(--muted-foreground)] flex items-center gap-1">
+                                  <Calendar className="w-3 h-3 text-[var(--primary)]" />
+                                  Assigned:
+                                </span>
+                                <span className="font-medium text-[var(--foreground)]">
+                                  {new Date(project.assignedDate || project.createdAt).toLocaleDateString(undefined, {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
                             </div>
 
                             {/* Card Footer: Counts & Stage Navigation */}
@@ -650,13 +673,14 @@ export default function Projects() {
                   <th className="px-6 py-3 font-semibold">Progress</th>
                   <th className="px-6 py-3 font-semibold">Assignee (BA)</th>
                   <th className="px-6 py-3 font-semibold">Supervisor</th>
+                  <th className="px-6 py-3 font-semibold">Assigned Date</th>
                   <th className="px-6 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
                 {filteredProjects.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-[var(--muted-foreground)]">
+                    <td colSpan={7} className="px-6 py-8 text-center text-[var(--muted-foreground)]">
                       No projects found.
                     </td>
                   </tr>
@@ -723,6 +747,13 @@ export default function Projects() {
                           ) : (
                             <span className="text-gray-400 italic">Unassigned</span>
                           )}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-medium text-[var(--muted-foreground)]">
+                          {new Date(project.assignedDate || project.createdAt).toLocaleDateString(undefined, {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -989,6 +1020,24 @@ export default function Projects() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Assigning Date */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[var(--primary)]" />
+                  Assigning Date
+                </label>
+                <input 
+                  type="date"
+                  required
+                  value={formData.assignedDate}
+                  onChange={(e) => setFormData({ ...formData, assignedDate: e.target.value })}
+                  className="w-full rounded-xl border border-[var(--border)] bg-white dark:bg-[#1a1a1e] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] text-[var(--foreground)]"
+                />
+                <p className="text-[11px] text-[var(--muted-foreground)]">
+                  Select the date when this project was officially assigned.
+                </p>
               </div>
 
               <div className="pt-4 flex gap-3 justify-end border-t border-[var(--border)]">

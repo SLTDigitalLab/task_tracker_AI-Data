@@ -52,7 +52,7 @@ const getProjects = async (req, res) => {
 // @access  Private (Supervisor/Admin only)
 const createProject = async (req, res) => {
   try {
-    const { title, description, status, progress, assigneeId } = req.body;
+    const { title, description, status, progress, assigneeId, assignedDate } = req.body;
     
     const project = await prisma.project.create({
       data: {
@@ -61,7 +61,13 @@ const createProject = async (req, res) => {
         status: status || 'BACKLOG',
         progress: progress !== undefined ? parseInt(progress, 10) : 0,
         supervisorId: req.user.id,
-        assigneeId: assigneeId || null
+        assigneeId: assigneeId || null,
+        assignedDate: assignedDate ? new Date(assignedDate) : new Date()
+      },
+      include: {
+        assignee: { select: { fullName: true, email: true } },
+        supervisor: { select: { fullName: true, email: true } },
+        _count: { select: { tasks: true, documents: true } }
       }
     });
 
@@ -87,7 +93,7 @@ const createProject = async (req, res) => {
 // @access  Private (Supervisor/Admin only)
 const updateProject = async (req, res) => {
   try {
-    const { title, description, status, progress, assigneeId } = req.body;
+    const { title, description, status, progress, assigneeId, assignedDate } = req.body;
     const projectId = req.params.id;
 
     const existingProject = await prisma.project.findUnique({ where: { id: projectId } });
@@ -106,9 +112,18 @@ const updateProject = async (req, res) => {
       dataToUpdate.progress = parseInt(progress, 10);
     }
 
+    if (assignedDate !== undefined) {
+      dataToUpdate.assignedDate = assignedDate ? new Date(assignedDate) : new Date();
+    }
+
     const project = await prisma.project.update({
       where: { id: projectId },
-      data: dataToUpdate
+      data: dataToUpdate,
+      include: {
+        assignee: { select: { fullName: true, email: true } },
+        supervisor: { select: { fullName: true, email: true } },
+        _count: { select: { tasks: true, documents: true } }
+      }
     });
 
     if (assigneeId && existingProject.assigneeId !== assigneeId) {

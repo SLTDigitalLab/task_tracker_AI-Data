@@ -77,9 +77,9 @@ export default function Dashboard() {
           })),
           ...projects.map(p => ({
             id: p.id,
-            title: `Project created: "${p.title}"`,
-            date: new Date(p.createdAt),
-            subtext: `Status: ${p.status}`,
+            title: `Project: "${p.title}"`,
+            date: new Date(p.assignedDate || p.createdAt),
+            subtext: `Status: ${p.status?.replace('_', ' ') || 'BACKLOG'}`,
             type: 'project'
           }))
         ]
